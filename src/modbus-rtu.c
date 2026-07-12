@@ -152,7 +152,7 @@ static int _modbus_rtu_send_msg_pre(uint8_t *req, int req_length)
     return req_length;
 }
 
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(MODBUS_TRANSPORT_ONLY)
 
 /* This simple implementation is sort of a substitute of the select() call,
  * working this way: the win32_ser_select() call tries to read some data from
@@ -947,7 +947,7 @@ static int _modbus_rtu_connect(modbus_t *ctx)
 // FIXME Temporary solution before rewriting Windows RTU backend
 static unsigned int _modbus_rtu_is_connected(modbus_t *ctx)
 {
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(MODBUS_TRANSPORT_ONLY)
     modbus_rtu_t *ctx_rtu = ctx->backend_data;
 
     /* Check if file handle is valid */
@@ -1487,7 +1487,7 @@ modbus_t *modbus_new_rtu_transport(void)
     /* No device: the transport owns the connection. */
     ctx_rtu->device = NULL;
     ctx_rtu->confirmation_to_ignore = FALSE;
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(MODBUS_TRANSPORT_ONLY)
     ctx_rtu->w_ser.fd = INVALID_HANDLE_VALUE;
 #endif
 
