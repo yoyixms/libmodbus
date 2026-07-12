@@ -5,14 +5,16 @@
  */
 
 #include <errno.h>
+#ifndef MODBUS_TRANSPORT_ONLY
 #include <fcntl.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #ifndef _MSC_VER
 #include <unistd.h>
 #endif
-#if defined(HAVE_STRUCT_TERMIOS2)
+#if defined(HAVE_STRUCT_TERMIOS2) && !defined(MODBUS_TRANSPORT_ONLY)
 #include <sys/ioctl.h>
 #endif
 #include "modbus-private.h"
@@ -21,11 +23,11 @@
 #include "modbus-rtu-private.h"
 #include "modbus-rtu.h"
 
-#if HAVE_DECL_TIOCSRS485 || HAVE_DECL_TIOCM_RTS
+#if (HAVE_DECL_TIOCSRS485 || HAVE_DECL_TIOCM_RTS) && !defined(MODBUS_TRANSPORT_ONLY)
 #include <sys/ioctl.h>
 #endif
 
-#if HAVE_DECL_TIOCSRS485
+#if HAVE_DECL_TIOCSRS485 && !defined(MODBUS_TRANSPORT_ONLY)
 #include <linux/serial.h>
 #endif
 
@@ -238,6 +240,7 @@ static int win32_ser_read(struct win32_ser *ws, uint8_t *p_msg, unsigned int max
 }
 #endif
 
+#ifndef MODBUS_TRANSPORT_ONLY
 #if HAVE_DECL_TIOCM_RTS
 static void _modbus_rtu_ioctl_rts(modbus_t *ctx, int on)
 {
@@ -316,6 +319,8 @@ static ssize_t _modbus_rtu_send(modbus_t *ctx, const uint8_t *req, int req_lengt
 #endif
 }
 
+#endif /* !MODBUS_TRANSPORT_ONLY */
+
 static int _modbus_rtu_receive(modbus_t *ctx, uint8_t *req)
 {
     int rc;
@@ -339,6 +344,7 @@ static int _modbus_rtu_receive(modbus_t *ctx, uint8_t *req)
     return rc;
 }
 
+#ifndef MODBUS_TRANSPORT_ONLY
 static ssize_t _modbus_rtu_recv(modbus_t *ctx, uint8_t *rsp, int rsp_length)
 {
 #if defined(_WIN32)
@@ -347,6 +353,8 @@ static ssize_t _modbus_rtu_recv(modbus_t *ctx, uint8_t *rsp, int rsp_length)
     return read(ctx->s, rsp, rsp_length);
 #endif
 }
+
+#endif /* !MODBUS_TRANSPORT_ONLY */
 
 static int _modbus_rtu_flush(modbus_t *);
 
@@ -412,6 +420,7 @@ static int _modbus_rtu_check_integrity(modbus_t *ctx, uint8_t *msg, const int ms
 }
 
 /* Sets up a serial port for RTU communications */
+#ifndef MODBUS_TRANSPORT_ONLY
 #if defined(_WIN32)
 static int _modbus_rtu_connect(modbus_t *ctx)
 {
@@ -933,6 +942,7 @@ static int _modbus_rtu_connect(modbus_t *ctx)
     return 0;
 }
 #endif
+#endif /* !MODBUS_TRANSPORT_ONLY */
 
 // FIXME Temporary solution before rewriting Windows RTU backend
 static unsigned int _modbus_rtu_is_connected(modbus_t *ctx)
@@ -947,6 +957,7 @@ static unsigned int _modbus_rtu_is_connected(modbus_t *ctx)
 #endif
 }
 
+#ifndef MODBUS_TRANSPORT_ONLY
 int modbus_rtu_set_serial_mode(modbus_t *ctx, int mode)
 {
     if (ctx == NULL) {
@@ -1258,6 +1269,7 @@ _modbus_rtu_select(modbus_t *ctx, fd_set *rset, struct timeval *tv, int length_t
 
     return s_rc;
 }
+#endif /* !MODBUS_TRANSPORT_ONLY */
 
 static void _modbus_rtu_free(modbus_t *ctx)
 {
@@ -1268,6 +1280,53 @@ static void _modbus_rtu_free(modbus_t *ctx)
 
     free(ctx);
 }
+
+#ifdef MODBUS_TRANSPORT_ONLY
+/* In a transport-only build the native serial I/O is compiled out; these stubs
+   satisfy the backend table and are never reached, because a registered
+   transport overrides all I/O (see modbus_set_transport). */
+static ssize_t _modbus_rtu_send(modbus_t *ctx, const uint8_t *req, int req_length)
+{
+    (void) ctx;
+    (void) req;
+    (void) req_length;
+    errno = ENOTSUP;
+    return -1;
+}
+static ssize_t _modbus_rtu_recv(modbus_t *ctx, uint8_t *rsp, int rsp_length)
+{
+    (void) ctx;
+    (void) rsp;
+    (void) rsp_length;
+    errno = ENOTSUP;
+    return -1;
+}
+static int _modbus_rtu_connect(modbus_t *ctx)
+{
+    (void) ctx;
+    errno = ENOTSUP;
+    return -1;
+}
+static void _modbus_rtu_close(modbus_t *ctx)
+{
+    (void) ctx;
+}
+static int _modbus_rtu_flush(modbus_t *ctx)
+{
+    (void) ctx;
+    return 0;
+}
+static int
+_modbus_rtu_select(modbus_t *ctx, fd_set *rset, struct timeval *tv, int length_to_read)
+{
+    (void) ctx;
+    (void) rset;
+    (void) tv;
+    (void) length_to_read;
+    errno = ENOTSUP;
+    return -1;
+}
+#endif /* MODBUS_TRANSPORT_ONLY */
 
 // clang-format off
 const modbus_backend_t _modbus_rtu_backend = {
@@ -1295,6 +1354,7 @@ const modbus_backend_t _modbus_rtu_backend = {
 
 // clang-format on
 
+#ifndef MODBUS_TRANSPORT_ONLY
 modbus_t *
 modbus_new_rtu(const char *device, int baud, char parity, int data_bit, int stop_bit)
 {
@@ -1397,6 +1457,7 @@ modbus_new_rtu(const char *device, int baud, char parity, int data_bit, int stop
 
     return ctx;
 }
+#endif /* !MODBUS_TRANSPORT_ONLY */
 
 /* Create a Modbus RTU context that carries only the RTU framing (address + CRC).
    All I/O must be provided through a pluggable transport (modbus_set_transport);
