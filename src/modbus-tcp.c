@@ -1044,6 +1044,37 @@ modbus_t *modbus_new_tcp(const char *ip, int port)
     return ctx;
 }
 
+/* Create a Modbus TCP context that carries only the MBAP framing. All I/O must
+   be provided through a pluggable transport (modbus_set_transport); no socket is
+   opened, so this context works on platforms without native sockets. */
+modbus_t *modbus_new_tcp_transport(void)
+{
+    modbus_t *ctx;
+    modbus_tcp_t *ctx_tcp;
+
+    ctx = (modbus_t *) malloc(sizeof(modbus_t));
+    if (ctx == NULL) {
+        return NULL;
+    }
+    _modbus_init_common(ctx);
+    ctx->slave = MODBUS_TCP_SLAVE;
+    ctx->backend = &_modbus_tcp_backend;
+
+    ctx->backend_data = (modbus_tcp_t *) malloc(sizeof(modbus_tcp_t));
+    if (ctx->backend_data == NULL) {
+        modbus_free(ctx);
+        errno = ENOMEM;
+        return NULL;
+    }
+    ctx_tcp = (modbus_tcp_t *) ctx->backend_data;
+    /* No address/port: the transport owns the connection. */
+    ctx_tcp->ip[0] = '\0';
+    ctx_tcp->port = 0;
+    ctx_tcp->t_id = 0;
+
+    return ctx;
+}
+
 modbus_t *modbus_new_tcp_pi(const char *node, const char *service)
 {
     modbus_t *ctx;
