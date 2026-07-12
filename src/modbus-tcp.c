@@ -26,6 +26,9 @@
 #include <signal.h>
 #include <sys/types.h>
 
+/* The native socket headers and I/O are excluded in a transport-only build; only
+   the MBAP framing and modbus_new_tcp_transport() remain. */
+#ifndef MODBUS_TRANSPORT_ONLY
 #if defined(_WIN32)
 /* Already set in modbus-tcp.h but it seems order matters in VS2005 */
 # include <winsock2.h>
@@ -52,6 +55,7 @@
 # include <arpa/inet.h>
 # include <netdb.h>
 #endif
+#endif /* !MODBUS_TRANSPORT_ONLY */
 
 #if !defined(MSG_NOSIGNAL)
 #define MSG_NOSIGNAL 0
@@ -173,6 +177,7 @@ static int _modbus_tcp_send_msg_pre(uint8_t *req, int req_length)
     return req_length;
 }
 
+#ifndef MODBUS_TRANSPORT_ONLY
 static ssize_t _modbus_tcp_send(modbus_t *ctx, const uint8_t *req, int req_length)
 {
     /* MSG_NOSIGNAL
@@ -181,16 +186,19 @@ static ssize_t _modbus_tcp_send(modbus_t *ctx, const uint8_t *req, int req_lengt
        error is still returned. */
     return send(ctx->s, (const char *) req, req_length, MSG_NOSIGNAL);
 }
+#endif /* !MODBUS_TRANSPORT_ONLY */
 
 static int _modbus_tcp_receive(modbus_t *ctx, uint8_t *req)
 {
     return _modbus_receive_msg(ctx, req, MSG_INDICATION);
 }
 
+#ifndef MODBUS_TRANSPORT_ONLY
 static ssize_t _modbus_tcp_recv(modbus_t *ctx, uint8_t *rsp, int rsp_length)
 {
     return recv(ctx->s, (char *) rsp, rsp_length, 0);
 }
+#endif /* !MODBUS_TRANSPORT_ONLY */
 
 static int _modbus_tcp_check_integrity(modbus_t *ctx, uint8_t *msg, const int msg_length)
 {
@@ -228,6 +236,7 @@ static int _modbus_tcp_pre_check_confirmation(modbus_t *ctx,
     return 0;
 }
 
+#ifndef MODBUS_TRANSPORT_ONLY
 static int _modbus_tcp_set_ipv4_options(int s)
 {
     int rc;
@@ -514,12 +523,14 @@ static int _modbus_tcp_pi_connect(modbus_t *ctx)
 
     return 0;
 }
+#endif /* !MODBUS_TRANSPORT_ONLY */
 
 static unsigned int _modbus_tcp_is_connected(modbus_t *ctx)
 {
     return ctx->s >= 0;
 }
 
+#ifndef MODBUS_TRANSPORT_ONLY
 /* Closes the network connection and socket in TCP mode */
 static void _modbus_tcp_close(modbus_t *ctx)
 {
@@ -907,6 +918,7 @@ _modbus_tcp_select(modbus_t *ctx, fd_set *rset, struct timeval *tv, int length_t
 
     return s_rc;
 }
+#endif /* !MODBUS_TRANSPORT_ONLY */
 
 static void _modbus_tcp_free(modbus_t *ctx)
 {
@@ -927,6 +939,59 @@ static void _modbus_tcp_pi_free(modbus_t *ctx)
 
     free(ctx);
 }
+
+#ifdef MODBUS_TRANSPORT_ONLY
+/* In a transport-only build the native socket I/O is compiled out; these stubs
+   satisfy the backend table and are never reached, because a registered
+   transport overrides all I/O (see modbus_set_transport). */
+static ssize_t _modbus_tcp_send(modbus_t *ctx, const uint8_t *req, int req_length)
+{
+    (void) ctx;
+    (void) req;
+    (void) req_length;
+    errno = ENOTSUP;
+    return -1;
+}
+static ssize_t _modbus_tcp_recv(modbus_t *ctx, uint8_t *rsp, int rsp_length)
+{
+    (void) ctx;
+    (void) rsp;
+    (void) rsp_length;
+    errno = ENOTSUP;
+    return -1;
+}
+static int _modbus_tcp_connect(modbus_t *ctx)
+{
+    (void) ctx;
+    errno = ENOTSUP;
+    return -1;
+}
+static int _modbus_tcp_pi_connect(modbus_t *ctx)
+{
+    (void) ctx;
+    errno = ENOTSUP;
+    return -1;
+}
+static void _modbus_tcp_close(modbus_t *ctx)
+{
+    (void) ctx;
+}
+static int _modbus_tcp_flush(modbus_t *ctx)
+{
+    (void) ctx;
+    return 0;
+}
+static int
+_modbus_tcp_select(modbus_t *ctx, fd_set *rset, struct timeval *tv, int length_to_read)
+{
+    (void) ctx;
+    (void) rset;
+    (void) tv;
+    (void) length_to_read;
+    errno = ENOTSUP;
+    return -1;
+}
+#endif /* MODBUS_TRANSPORT_ONLY */
 
 // clang-format off
 const modbus_backend_t _modbus_tcp_backend = {
