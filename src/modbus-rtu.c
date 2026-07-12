@@ -1397,3 +1397,37 @@ modbus_new_rtu(const char *device, int baud, char parity, int data_bit, int stop
 
     return ctx;
 }
+
+/* Create a Modbus RTU context that carries only the RTU framing (address + CRC).
+   All I/O must be provided through a pluggable transport (modbus_set_transport);
+   no serial port is opened, so this context works on platforms without a serial
+   backend. The slave must be set with modbus_set_slave() before use. */
+modbus_t *modbus_new_rtu_transport(void)
+{
+    modbus_t *ctx;
+    modbus_rtu_t *ctx_rtu;
+
+    ctx = (modbus_t *) malloc(sizeof(modbus_t));
+    if (ctx == NULL) {
+        return NULL;
+    }
+    _modbus_init_common(ctx);
+    ctx->backend = &_modbus_rtu_backend;
+
+    ctx->backend_data = (modbus_rtu_t *) malloc(sizeof(modbus_rtu_t));
+    if (ctx->backend_data == NULL) {
+        modbus_free(ctx);
+        errno = ENOMEM;
+        return NULL;
+    }
+    ctx_rtu = (modbus_rtu_t *) ctx->backend_data;
+    memset(ctx_rtu, 0, sizeof(modbus_rtu_t));
+    /* No device: the transport owns the connection. */
+    ctx_rtu->device = NULL;
+    ctx_rtu->confirmation_to_ignore = FALSE;
+#if defined(_WIN32)
+    ctx_rtu->w_ser.fd = INVALID_HANDLE_VALUE;
+#endif
+
+    return ctx;
+}

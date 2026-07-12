@@ -9,6 +9,7 @@ noinst_PROGRAMS = \
 	unit-test-server \
 	unit-test-client \
 	unit-test-transport \
+	unit-test-transport-only \
 	proxy-test-server \
 	proxy-test-client \
 	version
@@ -39,6 +40,9 @@ unit_test_client_LDADD = $(common_ldflags)
 
 unit_test_transport_SOURCES = unit-test-transport.c
 unit_test_transport_LDADD = $(common_ldflags)
+
+unit_test_transport_only_SOURCES = unit-test-transport-only.c
+unit_test_transport_only_LDADD = $(common_ldflags)
 
 proxy_test_server_SOURCES = proxy-test-server.c
 proxy_test_server_LDADD = $(common_ldflags)
