@@ -71,7 +71,7 @@
 #include "modbus-tcp-private.h"
 #include "modbus-tcp.h"
 
-#ifdef OS_WIN32
+#if defined(OS_WIN32) && !defined(MODBUS_TRANSPORT_ONLY)
 static int _modbus_tcp_init_win32(void)
 {
     /* Initialise Windows Socket API */
