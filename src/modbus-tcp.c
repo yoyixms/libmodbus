@@ -1109,9 +1109,10 @@ modbus_t *modbus_new_tcp(const char *ip, int port)
     return ctx;
 }
 
-/* Create a Modbus TCP context that carries only the MBAP framing. All I/O must
-   be provided through a pluggable transport (modbus_set_transport); no socket is
-   opened, so this context works on platforms without native sockets. */
+/* Create a Modbus TCP context that carries only the MBAP framing. No socket is
+   opened, so this context works on platforms without native sockets. A transport
+   must be registered with modbus_set_transport() before modbus_connect();
+   without one, connect/send/receive fail with errno set to ENOTSUP. */
 modbus_t *modbus_new_tcp_transport(void)
 {
     modbus_t *ctx;

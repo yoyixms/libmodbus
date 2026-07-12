@@ -414,12 +414,23 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
             return -1;
         }
     } else {
+#ifdef MODBUS_TRANSPORT_ONLY
+        /* No backend I/O exists in a transport-only build: a transport must be
+         * registered with modbus_set_transport(). Fail consistently with the
+         * send/connect paths (ENOTSUP) instead of a bare -1. */
+        if (ctx->debug) {
+            fprintf(stderr, "ERROR No transport registered (transport-only build).\n");
+        }
+        errno = ENOTSUP;
+        return -1;
+#else
         if (!ctx->backend->is_connected(ctx)) {
             if (ctx->debug) {
                 fprintf(stderr, "ERROR The connection is not established.\n");
             }
             return -1;
         }
+#endif
     }
 
     /* The fd_set is only touched on the default backend select path. A transport

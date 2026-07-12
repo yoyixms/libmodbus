@@ -1460,9 +1460,10 @@ modbus_new_rtu(const char *device, int baud, char parity, int data_bit, int stop
 #endif /* !MODBUS_TRANSPORT_ONLY */
 
 /* Create a Modbus RTU context that carries only the RTU framing (address + CRC).
-   All I/O must be provided through a pluggable transport (modbus_set_transport);
-   no serial port is opened, so this context works on platforms without a serial
-   backend. The slave must be set with modbus_set_slave() before use. */
+   No serial port is opened, so this context works on platforms without a serial
+   backend. A transport must be registered with modbus_set_transport() before
+   modbus_connect(); without one, connect/send/receive fail with errno set to
+   ENOTSUP. The slave must be set with modbus_set_slave() before use. */
 modbus_t *modbus_new_rtu_transport(void)
 {
     modbus_t *ctx;
