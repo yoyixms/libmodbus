@@ -97,6 +97,11 @@ void _error_print(modbus_t *ctx, const char *context)
 
 static void _sleep_response_timeout(modbus_t *ctx)
 {
+#ifdef MODBUS_TRANSPORT_ONLY
+    /* A transport-only build assumes no portable sleep primitive; error recovery
+       proceeds without a pause. */
+    (void) ctx;
+#else
     /* Response timeout is always positive */
 #ifdef _WIN32
     /* usleep doesn't exist on Windows */
@@ -109,6 +114,7 @@ static void _sleep_response_timeout(modbus_t *ctx)
     while (nanosleep(&request, &remaining) == -1 && errno == EINTR) {
         request = remaining;
     }
+#endif
 #endif
 }
 
@@ -378,7 +384,9 @@ compute_data_length_after_meta(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
 int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
 {
     int rc;
+#ifndef MODBUS_TRANSPORT_ONLY
     fd_set rset;
+#endif
     struct timeval tv;
     struct timeval *p_tv;
     unsigned int length_to_read;
@@ -416,7 +424,8 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
 
     /* The fd_set is only touched on the default backend select path. A transport
      * provides its own select(), so its receive path performs no fd_set/select
-     * operations at all (a step towards a socket-free build). */
+     * operations at all. In a transport-only build the backend path is absent. */
+#ifndef MODBUS_TRANSPORT_ONLY
     if (!ctx->transport) {
         if (ctx->s < 0 || ctx->s >= FD_SETSIZE) {
             if (ctx->debug) {
@@ -428,6 +437,7 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
         FD_ZERO(&rset);
         FD_SET(ctx->s, &rset);
     }
+#endif
 
     /* We need to analyse the message step by step.  At the first step, we want
      * to reach the function code because all packets contain this
@@ -463,7 +473,12 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
                 rc = -1;
             }
         } else {
+#ifndef MODBUS_TRANSPORT_ONLY
             rc = ctx->backend->select(ctx, &rset, p_tv, length_to_read);
+#else
+            errno = ENOTSUP;
+            rc = -1;
+#endif
         }
         if (rc == -1) {
             _error_print(ctx, "select");
