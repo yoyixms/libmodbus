@@ -197,6 +197,20 @@ AS_IF([test "x$enable_debug" = "xyes"], [
 ])
 AC_SUBST([LIBMODBUSCFLAGS])
 
+# Transport-only build: no native socket/serial I/O is compiled; all I/O must be
+# provided through a pluggable transport (see modbus_set_transport). Produces a
+# library usable on platforms without BSD sockets or a serial backend.
+AC_ARG_ENABLE([transport-only],
+  [AS_HELP_STRING([--enable-transport-only],
+    [Build without native socket/serial I/O; all I/O via a pluggable transport (default: no)])],
+  [enable_transport_only=$enableval],
+  [enable_transport_only=no])
+AS_IF([test "x$enable_transport_only" = "xyes"], [
+  AC_DEFINE([MODBUS_TRANSPORT_ONLY], [1],
+    [Build without native socket/serial I/O; all I/O via a pluggable transport])
+])
+AM_CONDITIONAL([TRANSPORT_ONLY], [test "x$enable_transport_only" = "xyes"])
+
 AC_OUTPUT
 AC_MSG_RESULT([
         $PACKAGE $VERSION
@@ -212,4 +226,5 @@ AC_MSG_RESULT([
         ldflags:                ${LDFLAGS}
 
         tests:                  ${enable_tests}
+        transport-only:         ${enable_transport_only}
 ])
