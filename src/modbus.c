@@ -414,8 +414,9 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
         }
     }
 
-    /* fd_set only used by the default backend select path */
-    FD_ZERO(&rset);
+    /* The fd_set is only touched on the default backend select path. A transport
+     * provides its own select(), so its receive path performs no fd_set/select
+     * operations at all (a step towards a socket-free build). */
     if (!ctx->transport) {
         if (ctx->s < 0 || ctx->s >= FD_SETSIZE) {
             if (ctx->debug) {
@@ -424,6 +425,7 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
             errno = EINVAL;
             return -1;
         }
+        FD_ZERO(&rset);
         FD_SET(ctx->s, &rset);
     }
 
