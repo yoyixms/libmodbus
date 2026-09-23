@@ -210,6 +210,15 @@ Pluggable I/O transport:
 
 - [modbus_set_transport](modbus_set_transport.md)
 - [modbus_get_transport](modbus_get_transport.md)
+- [modbus_new_tcp_transport](modbus_new_tcp_transport.md)
+- [modbus_new_rtu_transport](modbus_new_rtu_transport.md)
+
+A context created with `modbus_new_tcp_transport()` or
+`modbus_new_rtu_transport()` carries only the Modbus framing and performs no
+socket or serial I/O of its own; register a transport with
+`modbus_set_transport()` to drive it. Building the library with
+`./configure --enable-transport-only` compiles out all native socket and serial
+I/O, producing a library for platforms without BSD sockets or a serial backend.
 
 Information about header:
 

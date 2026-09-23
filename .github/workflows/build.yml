@@ -18,3 +18,15 @@ jobs:
               run: make
             - name: make distcheck
               run: make distcheck
+
+    transport-only:
+        runs-on: ubuntu-latest
+
+        steps:
+            - uses: actions/checkout@v6.0.1
+            - name: configure (--enable-transport-only)
+              run: ./autogen.sh && ./configure --enable-transport-only
+            - name: make
+              run: make
+            - name: make check
+              run: make check

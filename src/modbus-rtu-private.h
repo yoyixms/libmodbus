@@ -13,6 +13,9 @@
 #include "stdint.h"
 #endif
 
+/* Native serial headers are excluded in a transport-only build; only the RTU
+   framing and modbus_new_rtu_transport() remain. */
+#ifndef MODBUS_TRANSPORT_ONLY
 #if defined(_WIN32)
 #include <windows.h>
 #else
@@ -25,6 +28,7 @@
 #endif
 #include <termios.h>
 #endif
+#endif /* !MODBUS_TRANSPORT_ONLY */
 
 #define _MODBUS_RTU_HEADER_LENGTH     1
 #define _MODBUS_RTU_PRESET_REQ_LENGTH 6
@@ -61,6 +65,8 @@ typedef struct _modbus_rtu {
     uint8_t stop_bit;
     /* Parity: 'N', 'O', 'E' */
     char parity;
+    /* The saved serial settings are only needed by the native serial backend. */
+#ifndef MODBUS_TRANSPORT_ONLY
 #if defined(_WIN32)
     struct win32_ser w_ser;
     DCB old_dcb;
@@ -71,6 +77,7 @@ typedef struct _modbus_rtu {
     /* Save old termios settings */
     struct termios old_tios;
 #endif
+#endif /* !MODBUS_TRANSPORT_ONLY */
 #if HAVE_DECL_TIOCSRS485
     int serial_mode;
 #endif
