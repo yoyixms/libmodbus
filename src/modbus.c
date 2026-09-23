@@ -449,6 +449,12 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
     while (length_to_read != 0) {
         if (ctx->transport && ctx->transport->select) {
             rc = ctx->transport->select(ctx->transport, p_tv);
+            if (rc == 0) {
+                /* Timeout, as select(2) reports it. The backends return -1 with
+                   ETIMEDOUT instead, which the code below expects. */
+                errno = ETIMEDOUT;
+                rc = -1;
+            }
         } else {
             rc = ctx->backend->select(ctx, &rset, p_tv, length_to_read);
         }

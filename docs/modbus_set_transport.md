@@ -44,12 +44,14 @@ typedef struct modbus_transport {
 ```
 
 The *connect()* member is called by *modbus_connect()*, *send()* transmits a
-fully framed ADU, *recv()* reads an exact byte count and returns 0 when the peer
-closes, *select()* waits for incoming data with a timeout, *flush()* discards
-pending input, *close()* tears the connection down without freeing the struct,
-and *free()* releases all resources. Connection parameters such as the address
-and port must be stored in *priv* before the transport is registered, since the
-members receive only the transport pointer.
+fully framed ADU, *recv()* reads up to *len* bytes and returns the number read or
+0 when the peer closes, *select()* waits until data can be read or the timeout
+*tv* expires (NULL waits indefinitely) and returns a positive value when data is
+available or 0 on timeout, *flush()* discards pending input, *close()* tears the
+connection down without freeing the struct, and *free()* releases all resources.
+On error, members return -1 and set errno. Connection parameters such as the
+address and port must be stored in *priv* before the transport is registered,
+since the members receive only the transport pointer.
 
 ## Return value
 
