@@ -200,7 +200,7 @@ static int send_msg(modbus_t *ctx, uint8_t *msg, int msg_length)
         if (rc == -1) {
             _error_print(ctx, NULL);
             if (ctx->error_recovery & MODBUS_ERROR_RECOVERY_LINK) {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(MODBUS_TRANSPORT_ONLY)
                 /* Only the socket backend reports its errors through Winsock; a
                    transport sets errno, as on every other platform. */
                 if (!ctx->transport) {
@@ -392,7 +392,7 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
     unsigned int length_to_read;
     int msg_length = 0;
     _step_t step;
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(MODBUS_TRANSPORT_ONLY)
     int wsa_err;
 #endif
 
@@ -494,7 +494,7 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
         if (rc == -1) {
             _error_print(ctx, "select");
             if (ctx->error_recovery & MODBUS_ERROR_RECOVERY_LINK) {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(MODBUS_TRANSPORT_ONLY)
                 if (!ctx->transport) {
                     int saved_errno = errno;
 
@@ -537,7 +537,7 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
 
         if (rc == -1) {
             _error_print(ctx, "read");
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(MODBUS_TRANSPORT_ONLY)
             if (!ctx->transport) {
                 wsa_err = WSAGetLastError();
                 if ((ctx->error_recovery & MODBUS_ERROR_RECOVERY_LINK) &&
