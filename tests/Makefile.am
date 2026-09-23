@@ -18,11 +18,12 @@ noinst_PROGRAMS = \
 	unit-test-client \
 	unit-test-transport \
 	unit-test-transport-only \
+	unit-test-rtu-slave-filter \
 	proxy-test-server \
 	proxy-test-client \
 	version
 noinst_SCRIPTS = unit-tests.sh
-TESTS = ./unit-tests.sh unit-test-transport unit-test-transport-only
+TESTS = ./unit-tests.sh unit-test-transport unit-test-transport-only unit-test-rtu-slave-filter
 endif
 
 common_ldflags = \
@@ -57,6 +58,9 @@ unit_test_transport_LDADD = $(common_ldflags)
 
 unit_test_transport_only_SOURCES = unit-test-transport-only.c
 unit_test_transport_only_LDADD = $(common_ldflags)
+
+unit_test_rtu_slave_filter_SOURCES = unit-test-rtu-slave-filter.c
+unit_test_rtu_slave_filter_LDADD = $(common_ldflags)
 
 proxy_test_server_SOURCES = proxy-test-server.c
 proxy_test_server_LDADD = $(common_ldflags)

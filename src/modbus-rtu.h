@@ -26,6 +26,9 @@ MODBUS_API modbus_t *modbus_new_rtu_transport(void);
 MODBUS_API int modbus_rtu_set_serial_mode(modbus_t *ctx, int mode);
 MODBUS_API int modbus_rtu_get_serial_mode(modbus_t *ctx);
 
+MODBUS_API int
+modbus_rtu_set_slave_filter(modbus_t *ctx, const uint8_t *slaves, unsigned int count);
+
 #define MODBUS_RTU_RTS_NONE 0
 #define MODBUS_RTU_RTS_UP   1
 #define MODBUS_RTU_RTS_DOWN 2
