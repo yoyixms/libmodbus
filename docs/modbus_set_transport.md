@@ -49,9 +49,13 @@ fully framed ADU, *recv()* reads up to *len* bytes and returns the number read o
 *tv* expires (NULL waits indefinitely) and returns a positive value when data is
 available or 0 on timeout, *flush()* discards pending input, *close()* tears the
 connection down without freeing the struct, and *free()* releases all resources.
-On error, members return -1 and set errno. Connection parameters such as the
-address and port must be stored in *priv* before the transport is registered,
-since the members receive only the transport pointer.
+On error, members return -1 and set errno. With *MODBUS_ERROR_RECOVERY_LINK* (see
+[modbus_set_error_recovery](modbus_set_error_recovery.md)), that errno decides
+the recovery on every platform: errors such as ECONNRESET or EBADF mean the link
+is lost, so libmodbus calls *close()* and *connect()* before retrying.
+Connection parameters such as the address and port must be stored in *priv*
+before the transport is registered, since the members receive only the
+transport pointer.
 
 ## Return value
 
