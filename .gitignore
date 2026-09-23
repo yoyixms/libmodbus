@@ -49,6 +49,7 @@ tests/proxy-test-client
 tests/proxy-test-server
 tests/unit-test-client
 tests/unit-test-rtu-slave-filter
+tests/unit-test-reply-router
 tests/unit-test-server
 tests/unit-test-transport
 tests/unit-test-transport-loopback
