@@ -451,6 +451,108 @@ static void test_receive_not_connected(void)
     printf("PASS\n");
 }
 
+/* A transport with no link behind it, for the error paths: send() can fail
+ * once, select() always times out, and every call is recorded in order. */
+typedef struct {
+    int first_send_errno; /* errno for the first send(), 0 to succeed */
+    int n_send;
+    char trace[256];
+} fake_priv_t;
+
+static void fake_trace(fake_priv_t *p, const char *event)
+{
+    if (p->trace[0] != '\0')
+        strcat(p->trace, " ");
+    strcat(p->trace, event);
+}
+
+static int fake_connect(modbus_transport_t *t)
+{
+    fake_trace(t->priv, "connect");
+    return 0;
+}
+
+static ssize_t fake_send(modbus_transport_t *t, const uint8_t *buf, int len)
+{
+    fake_priv_t *p = t->priv;
+
+    (void) buf;
+    if (p->n_send++ == 0 && p->first_send_errno != 0) {
+        fake_trace(p, "send-fail");
+        errno = p->first_send_errno;
+        return -1;
+    }
+    fake_trace(p, "send");
+    return len;
+}
+
+static ssize_t fake_recv(modbus_transport_t *t, uint8_t *buf, int len)
+{
+    (void) buf;
+    (void) len;
+    fake_trace(t->priv, "recv");
+    errno = ECONNRESET;
+    return -1;
+}
+
+static int fake_select(modbus_transport_t *t, struct timeval *tv)
+{
+    (void) tv;
+    fake_trace(t->priv, "select-timeout");
+    return 0; /* the timeout expired, as select(2) reports it */
+}
+
+static int fake_flush(modbus_transport_t *t)
+{
+    fake_trace(t->priv, "flush");
+    return 0;
+}
+
+static void fake_close(modbus_transport_t *t)
+{
+    fake_trace(t->priv, "close");
+}
+
+static modbus_transport_t fake_transport(fake_priv_t *priv)
+{
+    modbus_transport_t tr = {
+        .connect = fake_connect,
+        .send = fake_send,
+        .recv = fake_recv,
+        .select = fake_select,
+        .flush = fake_flush,
+        .close = fake_close,
+        .priv = priv,
+    };
+    return tr;
+}
+
+/* Test 7: select() returning 0 is a timeout. The request fails with ETIMEDOUT
+ * and recv() is never called on an empty link. */
+static void test_select_timeout(void)
+{
+    printf("[7] select() timeout... ");
+    fflush(stdout);
+
+    modbus_t *ctx = modbus_new_tcp("127.0.0.1", 502);
+    assert(ctx);
+
+    fake_priv_t priv = {0};
+    modbus_transport_t tr = fake_transport(&priv);
+    assert(modbus_set_transport(ctx, &tr) == 0);
+    assert(modbus_connect(ctx) == 0);
+
+    uint16_t reg;
+    errno = 0;
+    assert(modbus_read_registers(ctx, 0, 1, &reg) == -1 && errno == ETIMEDOUT);
+    assert(strcmp(priv.trace, "connect send select-timeout") == 0);
+
+    modbus_set_transport(ctx, NULL);
+    modbus_free(ctx);
+
+    printf("PASS\n");
+}
+
 int main(void)
 {
 #ifdef _WIN32
@@ -466,6 +568,7 @@ int main(void)
     test_partial_override();
     test_api_validation();
     test_receive_not_connected();
+    test_select_timeout();
 
     printf("All tests passed.\n");
 
