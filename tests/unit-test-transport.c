@@ -553,6 +553,39 @@ static void test_select_timeout(void)
     printf("PASS\n");
 }
 
+/* Test 8: with MODBUS_ERROR_RECOVERY_LINK, a send() failing with ECONNRESET
+ * closes and reconnects the transport before the retry. The decision comes from
+ * errno on every platform, not from Winsock, which a transport never sets. */
+static void test_link_recovery(void)
+{
+    printf("[8] link recovery reconnects... ");
+    fflush(stdout);
+
+    modbus_t *ctx = modbus_new_tcp("127.0.0.1", 502);
+    assert(ctx);
+
+    fake_priv_t priv = {0};
+    priv.first_send_errno = ECONNRESET;
+    modbus_transport_t tr = fake_transport(&priv);
+    assert(modbus_set_transport(ctx, &tr) == 0);
+    modbus_set_error_recovery(ctx, MODBUS_ERROR_RECOVERY_LINK);
+    /* recovery sleeps for the response timeout */
+    modbus_set_response_timeout(ctx, 0, 1000);
+    assert(modbus_connect(ctx) == 0);
+
+    uint16_t reg;
+    errno = 0;
+    assert(modbus_read_registers(ctx, 0, 1, &reg) == -1 && errno == ETIMEDOUT);
+    /* reconnect after the failed send, flush after the timeout */
+    assert(strcmp(priv.trace,
+                  "connect send-fail close connect send select-timeout flush") == 0);
+
+    modbus_set_transport(ctx, NULL);
+    modbus_free(ctx);
+
+    printf("PASS\n");
+}
+
 int main(void)
 {
 #ifdef _WIN32
@@ -569,6 +602,7 @@ int main(void)
     test_api_validation();
     test_receive_not_connected();
     test_select_timeout();
+    test_link_recovery();
 
     printf("All tests passed.\n");
 
