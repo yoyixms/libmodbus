@@ -97,6 +97,11 @@ void _error_print(modbus_t *ctx, const char *context)
 
 static void _sleep_response_timeout(modbus_t *ctx)
 {
+#ifdef MODBUS_TRANSPORT_ONLY
+    /* A transport-only build assumes no portable sleep primitive; error recovery
+       proceeds without a pause. */
+    (void) ctx;
+#else
     /* Response timeout is always positive */
 #ifdef _WIN32
     /* usleep doesn't exist on Windows */
@@ -109,6 +114,7 @@ static void _sleep_response_timeout(modbus_t *ctx)
     while (nanosleep(&request, &remaining) == -1 && errno == EINTR) {
         request = remaining;
     }
+#endif
 #endif
 }
 
@@ -194,7 +200,7 @@ static int send_msg(modbus_t *ctx, uint8_t *msg, int msg_length)
         if (rc == -1) {
             _error_print(ctx, NULL);
             if (ctx->error_recovery & MODBUS_ERROR_RECOVERY_LINK) {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(MODBUS_TRANSPORT_ONLY)
                 /* Only the socket backend reports its errors through Winsock; a
                    transport sets errno, as on every other platform. */
                 if (!ctx->transport) {
@@ -378,13 +384,15 @@ compute_data_length_after_meta(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
 int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
 {
     int rc;
+#ifndef MODBUS_TRANSPORT_ONLY
     fd_set rset;
+#endif
     struct timeval tv;
     struct timeval *p_tv;
     unsigned int length_to_read;
     int msg_length = 0;
     _step_t step;
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(MODBUS_TRANSPORT_ONLY)
     int wsa_err;
 #endif
 
@@ -406,16 +414,29 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
             return -1;
         }
     } else {
+#ifdef MODBUS_TRANSPORT_ONLY
+        /* No backend I/O exists in a transport-only build: a transport must be
+         * registered with modbus_set_transport(). Fail consistently with the
+         * send/connect paths (ENOTSUP) instead of a bare -1. */
+        if (ctx->debug) {
+            fprintf(stderr, "ERROR No transport registered (transport-only build).\n");
+        }
+        errno = ENOTSUP;
+        return -1;
+#else
         if (!ctx->backend->is_connected(ctx)) {
             if (ctx->debug) {
                 fprintf(stderr, "ERROR The connection is not established.\n");
             }
             return -1;
         }
+#endif
     }
 
-    /* fd_set only used by the default backend select path */
-    FD_ZERO(&rset);
+    /* The fd_set is only touched on the default backend select path. A transport
+     * provides its own select(), so its receive path performs no fd_set/select
+     * operations at all. In a transport-only build the backend path is absent. */
+#ifndef MODBUS_TRANSPORT_ONLY
     if (!ctx->transport) {
         if (ctx->s < 0 || ctx->s >= FD_SETSIZE) {
             if (ctx->debug) {
@@ -424,8 +445,10 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
             errno = EINVAL;
             return -1;
         }
+        FD_ZERO(&rset);
         FD_SET(ctx->s, &rset);
     }
+#endif
 
     /* We need to analyse the message step by step.  At the first step, we want
      * to reach the function code because all packets contain this
@@ -461,12 +484,17 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
                 rc = -1;
             }
         } else {
+#ifndef MODBUS_TRANSPORT_ONLY
             rc = ctx->backend->select(ctx, &rset, p_tv, length_to_read);
+#else
+            errno = ENOTSUP;
+            rc = -1;
+#endif
         }
         if (rc == -1) {
             _error_print(ctx, "select");
             if (ctx->error_recovery & MODBUS_ERROR_RECOVERY_LINK) {
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(MODBUS_TRANSPORT_ONLY)
                 if (!ctx->transport) {
                     int saved_errno = errno;
 
@@ -509,7 +537,7 @@ int _modbus_receive_msg(modbus_t *ctx, uint8_t *msg, msg_type_t msg_type)
 
         if (rc == -1) {
             _error_print(ctx, "read");
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(MODBUS_TRANSPORT_ONLY)
             if (!ctx->transport) {
                 wsa_err = WSAGetLastError();
                 if ((ctx->error_recovery & MODBUS_ERROR_RECOVERY_LINK) &&
